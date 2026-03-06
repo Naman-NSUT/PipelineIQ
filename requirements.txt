@@ -1,0 +1,35 @@
+# ── Data & Visualization ──
+pandas
+numpy
+matplotlib
+seaborn
+scipy
+missingno
+plotly
+
+# ── Jupyter ──
+jupyterlab
+notebook
+
+# ── Scikit-Learn (Full Suite) ──
+scikit-learn
+
+# ── Boosting Libraries ──
+xgboost
+lightgbm
+catboost
+
+# ── Deep Learning (PyTorch) ──
+torch
+torchvision
+torchaudio
+
+# ── NLP / Hugging Face ──
+transformers
+tokenizers
+datasets
+sentencepiece
+
+# ── Utilities ──
+joblib
+tqdm
