@@ -173,6 +173,10 @@ else:
 xgb_model = xgb.XGBClassifier(**xgb_params)
 xgb_model.fit(X_train, y_train)
 
+# 🟢 NEW: Save the XGBoost Expert!
+xgb_model.save_model('xgboost_expert.json')
+print("💾 XGBoost Tabular Expert saved as 'xgboost_expert.json'!")
+
 y_pred_xgb = xgb_model.predict(X_test)
 baseline_acc = accuracy_score(y_test, y_pred_xgb) * 100
 
@@ -199,7 +203,7 @@ train_encodings = tokenizer(
     texts_train,
     truncation=True,
     padding='max_length',
-    max_length=128,
+    max_length=512,
     return_tensors='pt'
 )
 
@@ -208,7 +212,7 @@ test_encodings = tokenizer(
     texts_test,
     truncation=True,
     padding='max_length',
-    max_length=128,
+    max_length=512,
     return_tensors='pt'
 )
 
@@ -224,52 +228,32 @@ print(f"✅ test_encodings  input_ids: {test_encodings['input_ids'].shape}")
 # ═══════════════════════════════════════════════════════════
 
 # ────────── Hybrid Model Definition ──────────
-class CICDHybridModel(nn.Module):
-    def __init__(self, num_tabular_features, num_classes=10):
+class CICDTextModel(nn.Module):
+    def __init__(self, num_classes=10): 
         super().__init__()
-        
-        # NLP Branch: CodeBERT
+        # The Reader
         self.bert = AutoModel.from_pretrained("microsoft/codebert-base")
-        # Freeze early layers to save VRAM and speed up training
-        for param in list(self.bert.parameters())[:-30]:
+        
+        # We freeze the early layers to save VRAM on your RTX 4060
+        for param in list(self.bert.parameters())[:-4]:
             param.requires_grad = False
-        
-        # Tabular Branch: Small feedforward network
-        self.tabular_net = nn.Sequential(
-            nn.Linear(num_tabular_features, 128),
-            nn.ReLU(),
-            nn.BatchNorm1d(128),
-            nn.Dropout(0.3),
-            nn.Linear(128, 64),
-            nn.ReLU(),
-        )
-        
-        # Fusion Head: Combines BERT (768) + Tabular (64) = 832 → classes
+            
+        # The Classifier (Only needs 768 dimensions now!)
         self.classifier = nn.Sequential(
-            nn.Linear(768 + 64, 256),
+            nn.Linear(768, 256),
             nn.ReLU(),
             nn.BatchNorm1d(256),
             nn.Dropout(0.3),
             nn.Linear(256, num_classes),
         )
     
-    def forward(self, input_ids, attention_mask, tabular_features):
-        # NLP branch → [CLS] token embedding (768-dim)
+    def forward(self, input_ids, attention_mask):
+        # We only pass text in now!
         bert_output = self.bert(input_ids=input_ids, attention_mask=attention_mask)
         cls_embedding = bert_output.last_hidden_state[:, 0, :]
-        
-        # Tabular branch → 64-dim embedding
-        tab_embedding = self.tabular_net(tabular_features)
-        
-        # Fuse & classify
-        fused = torch.cat([cls_embedding, tab_embedding], dim=1)
-        logits = self.classifier(fused)
-        return logits
+        return self.classifier(cls_embedding)
 
 # ────────── Convert to Tensors ──────────
-# Use SCALED data for the neural network branch (Z-score helps NN converge)
-train_tabular_tensor = torch.tensor(X_train_scaled.values, dtype=torch.float32)
-test_tabular_tensor  = torch.tensor(X_test_scaled.values,  dtype=torch.float32)
 train_labels_tensor  = torch.tensor(y_train.values,  dtype=torch.long)
 test_labels_tensor   = torch.tensor(y_test.values,   dtype=torch.long)
 
@@ -279,14 +263,12 @@ batch_size = 32
 train_dataset = TensorDataset(
     train_encodings['input_ids'],
     train_encodings['attention_mask'],
-    train_tabular_tensor,
     train_labels_tensor
 )
 
 test_dataset = TensorDataset(
     test_encodings['input_ids'],
     test_encodings['attention_mask'],
-    test_tabular_tensor,
     test_labels_tensor
 )
 
@@ -294,11 +276,10 @@ train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 test_loader  = DataLoader(test_dataset,  batch_size=batch_size, shuffle=False)
 
 # ────────── Initialize Model on GPU ──────────
-model = CICDHybridModel(num_tabular_features=X_train.shape[1], num_classes=10)
+model = CICDTextModel(num_classes=10)
 model = model.to(device)
 
 print(f"✅ Model on {device}")
-print(f"   Tabular features: {X_train.shape[1]}")
 print(f"   Train batches: {len(train_loader)}")
 print(f"   Test batches:  {len(test_loader)}")
 
@@ -323,9 +304,9 @@ optimizer = torch.optim.AdamW(
 )
 criterion = nn.CrossEntropyLoss()
 
-EPOCHS = 3
+EPOCHS = 5
 
-print(f"🚀 Training Hybrid Model on {device} for {EPOCHS} epochs...\n")
+print(f"🚀 Training Text Expert on {device} for {EPOCHS} epochs...\n")
 
 for epoch in range(EPOCHS):
     model.train()
@@ -336,17 +317,16 @@ for epoch in range(EPOCHS):
     progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{EPOCHS}", leave=True)
     
     for batch in progress_bar:
-        input_ids, attention_mask, tabular_feats, labels = batch
+        input_ids, attention_mask, labels = batch
         
         # ── Move everything to GPU ──
         input_ids      = input_ids.to(device)
-        attention_mask  = attention_mask.to(device)
-        tabular_feats  = tabular_feats.to(device)
+        attention_mask = attention_mask.to(device)
         labels         = labels.to(device)
         
         # ── Forward pass ──
         optimizer.zero_grad()
-        logits = model(input_ids, attention_mask, tabular_feats)
+        logits = model(input_ids, attention_mask)
         loss = criterion(logits, labels)
         
         # ── Backward pass ──
@@ -390,31 +370,30 @@ print("🔍 Evaluating Hybrid Model on test set...")
 
 with torch.no_grad():
     for batch in tqdm(test_loader, desc="Testing"):
-        input_ids, attention_mask, tabular_feats, labels = batch
+        input_ids, attention_mask, labels = batch
         
         # Move to GPU
         input_ids      = input_ids.to(device)
-        attention_mask  = attention_mask.to(device)
-        tabular_feats  = tabular_feats.to(device)
+        attention_mask = attention_mask.to(device)
         
-        logits = model(input_ids, attention_mask, tabular_feats)
+        logits = model(input_ids, attention_mask)
         preds = torch.argmax(logits, dim=1)
         
         all_preds.extend(preds.cpu().numpy())
         all_labels.extend(labels.numpy())
 
-hybrid_acc = accuracy_score(all_labels, all_preds) * 100
+text_acc = accuracy_score(all_labels, all_preds) * 100
 
 # ── Final Comparison ──
 print(f"\n{'='*55}")
 print(f"  📊 XGBoost Tabular Baseline:    {baseline_acc:.2f}%")
-print(f"  📊 Hybrid (XGBoost + CodeBERT): {hybrid_acc:.2f}%")
-print(f"  📊 Improvement:                 {hybrid_acc - baseline_acc:+.2f}%")
+print(f"  📊 CodeBERT Text Expert:        {text_acc:.2f}%")
+print(f"  📊 Improvement:                 {text_acc - baseline_acc:+.2f}%")
 print(f"{'='*55}")
 
-print("\n📋 Hybrid Model — Classification Report:")
+print("\n📋 CodeBERT Text Expert — Classification Report:")
 print(classification_report(all_labels, all_preds, target_names=le_target.classes_))
 
 # ── Save the model ──
-torch.save(model.state_dict(), 'hybrid_model.pth')
-print("💾 Model saved to hybrid_model.pth")
+torch.save(model.state_dict(), 'codebert_text_expert.pth')
+print("💾 CodeBERT Text Expert saved as 'codebert_text_expert.pth'")
