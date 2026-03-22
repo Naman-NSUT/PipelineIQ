@@ -29,8 +29,8 @@ mem0_config = {
     "vector_store": {
         "provider": "qdrant",
         "config": {
-            "host":       os.environ.get("QDRANT_HOST", "localhost"),
-            "port":       int(os.environ.get("QDRANT_PORT", 6333)),
+            "url":        os.environ.get("QDRANT_ENDPOINT", os.environ.get("QDRANT_URL", f"http://{os.environ.get('QDRANT_HOST', 'localhost')}:{os.environ.get('QDRANT_PORT', 6333)}")),
+            "api_key":    os.environ.get("QDRANT_API_KEY", ""),
             "collection_name": "cicd_pipeline_memory",
             "embedding_model_dims": 768,   # text-embedding-004 output dim
         }
