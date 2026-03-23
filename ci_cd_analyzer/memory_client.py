@@ -22,7 +22,7 @@ mem0_config = {
     "embedder": {
         "provider": "gemini",
         "config": {
-            "model":   "text-embedding-004",
+            "model":   "embedding-001",
             "api_key": os.environ.get("GEMINI_API_KEY", ""),
         }
     },
