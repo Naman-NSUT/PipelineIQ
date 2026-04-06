@@ -19,7 +19,7 @@ def code_repair(state: RepairState) -> dict:
     logger.info("Starting code repair logic...")
     llm = ChatGoogleGenerativeAI(
         model="gemini-2.5-pro",
-        google_api_key=config.GEMINI_API_KEY,
+        api_key=config.GEMINI_API_KEY,
         temperature=0.1
     )
     
