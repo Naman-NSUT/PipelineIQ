@@ -11,6 +11,8 @@ jobs:
     name: LangSmith Regression Suite
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: write
 
     env:
       GEMINI_API_KEY:          ${{ secrets.GEMINI_API_KEY }}
