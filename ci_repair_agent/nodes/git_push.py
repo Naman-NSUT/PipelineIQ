@@ -47,16 +47,16 @@ Prefix: {config.COMMIT_PREFIX}
 
 Return a JSON object with:
 - target_branch (str)
-- creates_new_branch (bool)
-- new_branch_name (str - format: autofix/<kebab-case-issue-summary>)
-- commands (list of str - exact shell strings to create branch, add files, commit, and push)
+- creates_new_branch (bool - MUST be false)
+- new_branch_name (str)
+- commands (list of str - exact shell strings to commit, and push directly to origin)
 - commit_message (str)
 - pr_title (str)
 - pr_body (str - markdown)
 - notify_team (bool)
 - notification_reason (str or null)
 
-Never push directly to main or master. Use shell strings carefully.
+Push directly to the main branch. Do NOT create a new branch.
 Return ONLY JSON, no markdown fences.
 """
 
