@@ -51,7 +51,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "PipelineIQ: Autonomously repairing failed pipeline..."
-          pip install -r requirements.txt
-          pip install langgraph langchain-google-genai google-genai jq
+          pip check || pip install -r requirements.txt --ignore-installed
           jq -n --rawfile log pytest.log '{ci_logs: "", test_report: $log, file_tree: ["test_agent_app/app.py", "test_agent_app/test_app.py", "test_agent_app/index.html"], trigger_branch: "main"}' > agent_payload.json
           python -m ci_repair_agent.main agent_payload.json
