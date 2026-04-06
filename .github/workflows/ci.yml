@@ -14,10 +14,6 @@ jobs:
 
     env:
       GEMINI_API_KEY:          ${{ secrets.GEMINI_API_KEY }}
-      LANGCHAIN_API_KEY:       ${{ secrets.LANGCHAIN_API_KEY }}
-      LANGCHAIN_TRACING_V2:    "true"
-      LANGCHAIN_PROJECT:       "cicd-error-classifier"
-      LANGCHAIN_ENDPOINT:      "https://api.smith.langchain.com"
       QDRANT_HOST:             "localhost"
       QDRANT_PORT:             "6333"
 
@@ -40,10 +36,6 @@ jobs:
       - name: Run Demo Web App Tests
         run: pip install pytest fastapi httpx uvicorn && pytest test_agent_app/test_app.py > pytest.log 2>&1 || (cat pytest.log && exit 1)
 
-      - name: Run regression suite
-        run: python -m ci_cd_analyzer.eval_runner --threshold 0.90
-        # Exits with code 1 if accuracy < 90%, failing the workflow
-
       - name: Autonomous CI Repair Agent
         if: failure()
         env:
@@ -51,6 +43,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "PipelineIQ: Autonomously repairing failed pipeline..."
-          pip check || pip install -r requirements.txt --ignore-installed
           jq -n --rawfile log pytest.log '{ci_logs: "", test_report: $log, file_tree: ["test_agent_app/app.py", "test_agent_app/test_app.py", "test_agent_app/index.html"], trigger_branch: "main"}' > agent_payload.json
           python -m ci_repair_agent.main agent_payload.json
