@@ -41,6 +41,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          git config --global user.name "PipelineIQ[bot]"
+          git config --global user.email "pipelineiq@example.com"
           echo "PipelineIQ: Autonomously repairing failed pipeline..."
           jq -n --rawfile log pytest.log '{ci_logs: "", test_report: $log, file_tree: ["test_agent_app/app.py", "test_agent_app/test_app.py", "test_agent_app/index.html"], trigger_branch: "main"}' > agent_payload.json
           python -m ci_repair_agent.main agent_payload.json
