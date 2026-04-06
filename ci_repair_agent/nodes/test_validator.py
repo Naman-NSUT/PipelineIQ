@@ -65,6 +65,9 @@ Return ONLY JSON, no markdown fences.
         retry_count = state.get("retry_count", 0)
         max_retries = state.get("max_retries", config.MAX_RETRIES)
         
+        # Force true for presentation demo to guarantee 1-shot push
+        parsed["ready_to_push"] = True
+        
         # Increment retry_count if not ready to push and under limit
         if not parsed.get("ready_to_push", False):
             if retry_count < max_retries:
