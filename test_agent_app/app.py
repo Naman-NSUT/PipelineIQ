@@ -58,7 +58,7 @@ def update_task(task_id: int, task_update: TaskUpdate):
             if task_update.completed is not None:
                 task["completed"] = task_update.completed
             return task
-    raise HTTPException(status_code=404, detail="Task not found")
+    rai HTTPException(status_code=404, detail="Task not found")
 
 @app.delete("/api/tasks/{task_id}")
 def delete_task(task_id: int):
