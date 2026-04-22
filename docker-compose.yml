@@ -19,16 +19,6 @@ services:
       - neo4j
     restart: always
 
-  frontend:
-    build:
-      context: ./dashboard
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
-    environment:
-      - VITE_API_URL=http://localhost:8000
-    restart: always
-
   qdrant:
     image: qdrant/qdrant:v1.8.2
     ports:

@@ -58,8 +58,7 @@ cover/
 # Dependency directories
 node_modules/
 jspm_packages/
-dashboard/node_modules/
-dashboard/dist/
+
 
 # Logs
 logs
